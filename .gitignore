@@ -1,10 +1,16 @@
-# Virtual environment
+# virtual environment
 langchain-env/
 
-# Python cache files
+# environment variables
+.env
+
+# service account
+service-account.json
+
+# python cache files
 __pycache__/
 *.pyc
 
-# Other common files to ignore
+# other common files to ignore
 .DS_Store
 *.log
