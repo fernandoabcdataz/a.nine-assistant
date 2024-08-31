@@ -1,16 +1,30 @@
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project                     = var.project_id
+  region                      = var.region
 }
 
-# create cloud storage bucket
+resource "google_project_iam_member" "terraform_sa_permissions" {
+  for_each = toset([
+    "roles/cloudfunctions.admin",
+    "roles/iam.serviceAccountUser",
+    "roles/storage.admin",
+    "roles/bigquery.admin",
+    "roles/secretmanager.admin"
+  ])
+  
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:terraform-sa@abcdataz.iam.gserviceaccount.com"
+}
+
+# Create Cloud Storage bucket
 resource "google_storage_bucket" "knowledge_base" {
   name     = var.bucket_name
   location = var.region
   uniform_bucket_level_access = true
 }
 
-# upload all yaml files from a directory to cloud storage
+# Upload all YAML files from a directory to Cloud Storage
 resource "google_storage_bucket_object" "knowledge_base_files" {
   for_each = fileset("${path.module}/../../knowledge_base_files", "*.yaml")
   
@@ -19,16 +33,16 @@ resource "google_storage_bucket_object" "knowledge_base_files" {
   source = "${path.module}/../../knowledge_base_files/${each.value}"
 }
 
-# create bigquery dataset
+# Create BigQuery dataset
 resource "google_bigquery_dataset" "shared_knowledge" {
   dataset_id                 = var.dataset_id
-  friendly_name              = "shared Knowledge Base"
-  description                = "dataset for shared knowledge base"
+  friendly_name              = "Shared Knowledge Base"
+  description                = "Dataset for shared knowledge base"
   location                   = var.region
   delete_contents_on_destroy = true
 }
 
-# create a single BigQuery table for all embeddings
+# Create a single BigQuery table for all embeddings
 resource "google_bigquery_table" "knowledge_base_embeddings" {
   dataset_id          = google_bigquery_dataset.shared_knowledge.dataset_id
   table_id            = var.table_id
@@ -40,38 +54,38 @@ resource "google_bigquery_table" "knowledge_base_embeddings" {
     "name": "entity",
     "type": "STRING",
     "mode": "REQUIRED",
-    "description": "the name of the entity or semantic model"
+    "description": "The name of the entity or semantic model"
   },
   {
     "name": "chunk_id",
     "type": "STRING",
     "mode": "REQUIRED",
-    "description": "unique identifier for the text chunk"
+    "description": "Unique identifier for the text chunk"
   },
   {
     "name": "text_chunk",
     "type": "STRING",
     "mode": "REQUIRED",
-    "description": "the text content of the chunk"
+    "description": "The text content of the chunk"
   },
   {
     "name": "embedding",
     "type": "FLOAT",
     "mode": "REPEATED",
-    "description": "the vector embedding of the text chunk"
+    "description": "The vector embedding of the text chunk"
   }
 ]
 EOF
 }
 
-# create a service account for the script to use
+# Create a service account for the script to use
 resource "google_service_account" "knowledge_base_uploader" {
   account_id   = var.service_account_id
-  display_name = "knowledge base uploader"
-  description  = "service account for uploading knowledge base data to BigQuery"
+  display_name = "Knowledge Base Uploader"
+  description  = "Service account for uploading knowledge base data to BigQuery"
 }
 
-# grant necessary permissions to the service account
+# Grant necessary permissions to the service account
 resource "google_project_iam_member" "storage_object_viewer" {
   project = var.project_id
   role    = "roles/storage.objectViewer"
@@ -90,7 +104,7 @@ resource "google_project_iam_member" "bigquery_job_user" {
   member  = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
 }
 
-# create a secret for the anthropic api key
+# Create a secret for the Anthropic API key
 resource "google_secret_manager_secret" "anthropic_api_key" {
   secret_id = "anthropic-api-key"
   
@@ -99,17 +113,17 @@ resource "google_secret_manager_secret" "anthropic_api_key" {
   }
 }
 
-# grant the Cloud Function's service account access to the secret
+# Grant the Cloud Function's service account access to the secret
 resource "google_secret_manager_secret_iam_member" "anthropic_api_key_access" {
   secret_id = google_secret_manager_secret.anthropic_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
 }
 
-# create a cloud function to run the script
+# Create a Cloud Function to run the script
 resource "google_cloudfunctions_function" "upload_knowledge_base" {
   name        = "upload-knowledge-base"
-  description = "function to upload knowledge base to BigQuery"
+  description = "Function to upload knowledge base to BigQuery"
   runtime     = "python39"
 
   available_memory_mb   = 256
@@ -139,7 +153,7 @@ resource "google_cloudfunctions_function" "upload_knowledge_base" {
   }
 }
 
-# prepare and upload the cloud function code
+# Prepare and upload the Cloud Function code
 data "archive_file" "function_zip" {
   type        = "zip"
   source_dir  = "../function"
@@ -150,4 +164,17 @@ resource "google_storage_bucket_object" "function_zip" {
   name   = "function-source-${data.archive_file.function_zip.output_md5}.zip"
   bucket = google_storage_bucket.knowledge_base.name
   source = data.archive_file.function_zip.output_path
+}
+
+# Grant the Cloud Function service account the necessary roles
+resource "google_project_iam_member" "function_invoker" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.invoker"
+  member  = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
+}
+
+resource "google_project_iam_member" "function_service_account_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
 }
