@@ -1,5 +1,5 @@
 variable "project_id" {
-  description = "the id of the google cloud project"
+  description = "the ID of the Google Cloud project"
   type        = string
 }
 
@@ -10,25 +10,25 @@ variable "region" {
 }
 
 variable "bucket_name" {
-  description = "the name of the cloud storage bucket"
+  description = "the name of the Cloud Storage bucket for knowledge base files"
   type        = string
   default     = "abcdataz_knowledge_base"
 }
 
 variable "dataset_id" {
-  description = "the id of the bigquery dataset"
+  description = "the ID of the BigQuery dataset for the knowledge base"
   type        = string
   default     = "knowledge_base"
 }
 
 variable "table_id" {
-  description = "the id of the bigquery table"
+  description = "the ID of the BigQuery table for semantic model embeddings"
   type        = string
   default     = "semantic_model_embeddings"
 }
 
 variable "service_account_id" {
-  description = "the id of the service account"
+  description = "the ID of the service account for the knowledge base uploader"
   type        = string
   default     = "knowledge-base-uploader"
 }
