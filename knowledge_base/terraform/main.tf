@@ -90,6 +90,22 @@ resource "google_project_iam_member" "bigquery_job_user" {
   member  = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
 }
 
+# create a secret for the anthropic api key
+resource "google_secret_manager_secret" "anthropic_api_key" {
+  secret_id = "anthropic-api-key"
+  
+  replication {
+    auto {}
+  }
+}
+
+# grant the Cloud Function's service account access to the secret
+resource "google_secret_manager_secret_iam_member" "anthropic_api_key_access" {
+  secret_id = google_secret_manager_secret.anthropic_api_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.knowledge_base_uploader.email}"
+}
+
 # create a cloud function to run the script
 resource "google_cloudfunctions_function" "upload_knowledge_base" {
   name        = "upload-knowledge-base"
@@ -115,6 +131,12 @@ resource "google_cloudfunctions_function" "upload_knowledge_base" {
   }
 
   service_account_email = google_service_account.knowledge_base_uploader.email
+
+  secret_environment_variables {
+    key     = "ANTHROPIC_API_KEY"
+    secret  = google_secret_manager_secret.anthropic_api_key.secret_id
+    version = "latest"
+  }
 }
 
 # prepare and upload the cloud function code
