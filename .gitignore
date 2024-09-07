@@ -1,16 +1,38 @@
 # virtual environment
 langchain-env/
 
-# environment variables
+# ignore .env files which might contain sensitive environment variables
 .env
+
+# ignore any local python virtual environments
+venv/
+*.venv
+env/
 
 # service account
 service-account.json
 
-# python cache files
-__pycache__/
-*.pyc
+# ignore any .pem files (often used for ssh keys)
+*.pem
 
-# other common files to ignore
+# ignore macos specific files
 .DS_Store
+
+# ignore windows specific files
+Thumbs.db
+
+# ignore common editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ignore log files
 *.log
+
+# ignore any compiled python files
+*.pyc
+__pycache__/
+
+# ignore any local backups
+*.bak
